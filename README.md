@@ -1,4 +1,6 @@
-# 🌟 **Pomodify** 🌟
+<img src="public/img/logomark.png" style="width: 60%;" />
+
+---
 > **_Visualize your time. Amplify your focus._**
 
 Pomodify は、音と映像のビジュアルエフェクトを組み合わせ、集中力を最大化する次世代型ポモドーロタイマーです。
