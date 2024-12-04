@@ -7,15 +7,34 @@ type VisualizerProps = {
   analyserNode: AnalyserNode;
 }
 
-const Visualizer: React.FC<VisualizerProps> = React.memo(({ isRunning, analyserNode }) => {
+const CANVAS_SIZE = 456;
+const CIRCLE_DEGREES = 360;
+const CIRCLE_DIVISION_ANGLE = 4;
+const CIRCLE_ROTATION_SPEED = 0.1;
+const CIRCLE_RADIUS = 116;
+const LINE_LENGTH = 48;
+
+const COLOR_MAPPING = {
+  r: { inputMin: 0, inputMax: 255 * 1.6, outputMin: 133, outputMax: 255 },
+  g: { inputMin: 0, inputMax: 255 * 1.6, outputMin: 73, outputMax: 200 },
+  b: { inputMin: 0, inputMax: 255 * 1.6, outputMin: 152, outputMax: 255 },
+};
+
+const mapColor = (p: p5Types, value: number) => {
+  const r = p.map(value, COLOR_MAPPING.r.inputMin, COLOR_MAPPING.r.inputMax, COLOR_MAPPING.r.outputMin, COLOR_MAPPING.r.outputMax);
+  const g = p.map(value, COLOR_MAPPING.g.inputMin, COLOR_MAPPING.g.inputMax, COLOR_MAPPING.g.outputMin, COLOR_MAPPING.g.outputMax);
+  const b = p.map(value, COLOR_MAPPING.b.inputMin, COLOR_MAPPING.b.inputMax, COLOR_MAPPING.b.outputMin, COLOR_MAPPING.b.outputMax);
+  return { r, g, b };
+};
+
+export const Visualizer: React.FC<VisualizerProps> = React.memo(({ isRunning, analyserNode }) => {
   const sketch = (p: p5Types & { updateWithProps?: (props: { isRunning: boolean }) => void }) => {
     let dataArray: Uint8Array;
     let bufferLength: number;
     let angleOffset = 0;
-    let running = false;
 
     p.setup = () => {
-      p.createCanvas(456, 456);
+      p.createCanvas(CANVAS_SIZE, CANVAS_SIZE);
       bufferLength = analyserNode.frequencyBinCount;
       dataArray = new Uint8Array(bufferLength);
       p.angleMode(p.DEGREES);
@@ -23,48 +42,28 @@ const Visualizer: React.FC<VisualizerProps> = React.memo(({ isRunning, analyserN
 
     p.draw = () => {
       p.clear();
-
-      analyserNode.getByteFrequencyData(dataArray);
-
       p.translate(p.width / 2, p.height / 2);
 
-      if (running) {
-        angleOffset += 0.1;
-      }
+      analyserNode.getByteFrequencyData(dataArray);
+      angleOffset += CIRCLE_ROTATION_SPEED;
 
-      for (let i = 0; i < 360; i += 4) {
-        const index = Math.floor(p.map(i * 2 / 3, 0, 360, 0, dataArray.length - 1));
-        console.log(index);
+      for (let i = 0; i < CIRCLE_DEGREES; i += CIRCLE_DIVISION_ANGLE) {
+        const index = Math.floor(p.map(i * 3 / 4, 0, CIRCLE_DEGREES, 0, dataArray.length - 1));
         const value = dataArray[index];
 
-        const r = p.map(value * 1.5, 0, 255, 100, 255);
-        const g = p.map(value * 1.5, 0, 255, 50, 200);
-        const b = p.map(value * 1.5, 0, 255, 150, 255);
-
+        const { r, g, b } = mapColor(p, value * 1.6);
         p.stroke(r, g, b);
         p.strokeWeight(2);
 
-        const radius = p.map(value, 0, 255, 116, 200);
-
+        const radius = p.map(value, 0, 255, CIRCLE_RADIUS, 200);
         const x1 = radius * p.cos(i + angleOffset);
         const y1 = radius * p.sin(i + angleOffset);
-        const x2 = (radius + 48) * p.cos(i + angleOffset);
-        const y2 = (radius + 48) * p.sin(i + angleOffset);
-
+        const x2 = (radius + LINE_LENGTH) * p.cos(i + angleOffset);
+        const y2 = (radius + LINE_LENGTH) * p.sin(i + angleOffset);
         p.line(x1, y1, x2, y2);
-      }
-    };
-
-    p.updateWithProps = (props: { isRunning: boolean }) => {
-      running = props.isRunning;
-      if (!running) {
-        angleOffset = 0;
-        p.noLoop();
       }
     };
   };
 
   return <ReactP5Wrapper sketch={sketch} isRunning={isRunning} />;
 });
-
-export default Visualizer;
