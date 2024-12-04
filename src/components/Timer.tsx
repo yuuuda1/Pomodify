@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Controls } from './Controls';
-import Visualizer from './Visualizer';
+import { Visualizer } from './Visualizer';
 import { BackgroundAnimation } from './BackgroundAnimation';
 import styled from 'styled-components';
 
@@ -13,43 +13,39 @@ function getAudioContext(): typeof AudioContext | undefined {
   return undefined;
 }
 
-const MAX_TIME = 30 * 60; // 1800秒 = 30分
+const MAX_TIME = 1800;
 
 export const Timer: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(MAX_TIME);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
-  // Web Audio API
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
 
   useEffect(() => {
-    // AudioContextの初期化
     const AudioContextClass = getAudioContext();
 
     if (AudioContextClass) {
       audioContextRef.current = new AudioContextClass();
       analyserNodeRef.current = audioContextRef.current.createAnalyser();
+      fetch('/audio/sound.mp3')
+        .then((response) => response.arrayBuffer())
+        .then((arrayBuffer) => audioContextRef.current!.decodeAudioData(arrayBuffer))
+        .then((audioBuffer) => {
+          audioBufferRef.current = audioBuffer;
+        })
+        .catch((error) => console.error(error));
+
+      return () => {
+        audioContextRef.current?.close();
+      };
     } else {
       console.error('AudioContext is not supported in this browser.');
       return;
     }
-
-    // 音声ファイルの読み込み
-    fetch('/audio/sound.mp3')
-      .then((response) => response.arrayBuffer())
-      .then((arrayBuffer) => audioContextRef.current!.decodeAudioData(arrayBuffer))
-      .then((audioBuffer) => {
-        audioBufferRef.current = audioBuffer;
-      })
-      .catch((error) => console.error(error));
-
-    return () => {
-      audioContextRef.current?.close();
-    };
   }, []);
 
   useEffect(() => {
@@ -87,18 +83,22 @@ export const Timer: React.FC = () => {
 
   const playAudio = () => {
     if (audioContextRef.current && audioBufferRef.current) {
-      sourceRef.current = audioContextRef.current.createBufferSource();
-      sourceRef.current.buffer = audioBufferRef.current;
-      sourceRef.current.loop = true;
-      sourceRef.current.connect(analyserNodeRef.current!);
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      source.loop = true;
+      source.connect(analyserNodeRef.current!);
       analyserNodeRef.current!.connect(audioContextRef.current.destination);
-      sourceRef.current.start();
+      source.start();
+      sourceRef.current = source;
     }
   };
 
   const stopAudio = () => {
-    sourceRef.current?.stop();
-    sourceRef.current = null;
+    if (sourceRef.current) {
+      sourceRef.current.stop();
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
   };
 
   const formatTime = (seconds: number) => {
