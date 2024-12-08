@@ -13,7 +13,7 @@ function getAudioContext(): typeof AudioContext | undefined {
   return undefined;
 }
 
-const MAX_TIME = 1800;
+const MAX_TIME = 1500;
 
 export const Timer: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(MAX_TIME);
